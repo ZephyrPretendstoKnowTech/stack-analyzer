@@ -2,7 +2,7 @@
 
 Stop guessing your margin. A free MSP tool to build, compare, and price tech stacks with real gross profit visibility.
 
-🔗 **[Open the Tool](https://zephyrpretendestoknowtech.github.io/stack-analyzer)**
+🔗 **[Open the Tool](https://zephyrpretendstoknowtech.github.io/stack-analyzer/)**
 
 ---
 
@@ -15,20 +15,20 @@ Stop guessing your margin. A free MSP tool to build, compare, and price tech sta
 - See Monthly Revenue, Annual Revenue, and Gross Profit per stack
 - **Side-by-side comparison** showing which stack earns you more GP
 - **Export to PDF** for QBRs and proposals
-- Auto-saves progress in your browser — no sign-up required
+- Auto-saves progress in your browser
 
 ---
 
 ## How to use
 
-Click the link above — everything runs in your browser. No install, no account, no data sent anywhere.
+Click the link above — everything runs in your browser. No install or account needed.
 
-To run locally: download `MSP Stack Analyzer.html` and open it in any browser.
+To run locally: download `index.html` and open it in any browser.
 
 ---
 
 ## Built by
 
-[Lachlan Robinette](https://www.linkedin.com/in/lachlanrobinette) — Consultant at Galaxy IT, and MSPGeek community member.
+[Lachlan Robinette](https://www.linkedin.com/in/lachlanrobinette) — IT Consultant at Galaxy IT, and MSPGeek community member.
 
-Feel free to share with your team or peers
+Feel free to use & share with your team!
