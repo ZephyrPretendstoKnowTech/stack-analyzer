@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSP Stack Cost Analyzer</title>
+<style>
+  :root {
+    --bg: #09090f;
+    --surface: #111320;
+    --surface2: #181b2e;
+    --surface3: #1e2235;
+    --border: #252840;
+    --border2: #2e3350;
+    --accent: #5b6af0;
+    --accent-soft: rgba(91,106,240,.15);
+    --green: #22c55e;
+    --green-soft: rgba(34,197,94,.12);
+    --red: #ef4444;
+    --red-soft: rgba(239,68,68,.1);
+    --yellow: #eab308;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --muted2: #94a3b8;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 13px; min-height: 100vh; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(160deg, #0c0e1e 0%, #131630 60%, #0c1020 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 32px 32px 28px;
+    position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(91,106,240,.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-inner { max-width: 900px; }
+  .hero-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+  .hero h1 { font-size: 26px; font-weight: 800; line-height: 1.2; background: linear-gradient(135deg, #c7d0ff 0%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+  .hero p { font-size: 13px; color: var(--muted2); line-height: 1.7; max-width: 560px; }
+  .hero-chips { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .chip { padding: 4px 12px; border-radius: 99px; font-size: 10px; font-weight: 600; border: 1px solid var(--border2); color: var(--muted2); background: var(--surface2); }
+
+  /* MAIN */
+  .main { padding: 24px 24px 48px; max-width: 1400px; margin: 0 auto; }
+
+  /* TOP BAR */
+  .top-bar { display: flex; align-items: center; gap: 16px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; flex-wrap: wrap; }
+  .top-bar label { font-size: 12px; font-weight: 600; color: var(--muted2); white-space: nowrap; }
+  .top-bar input[type=number] { width: 80px; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; padding: 6px 10px; color: var(--text); font-size: 14px; font-weight: 700; text-align: center; }
+  .top-bar input[type=number]:focus { outline: none; border-color: var(--accent); }
+  .top-bar .divider { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+  .top-bar .hint { font-size: 11px; color: var(--muted); }
+  .top-bar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .add-stack-btn { display: flex; align-items: center; gap: 7px; padding: 8px 16px; background: var(--accent-soft); border: 1px solid rgba(91,106,240,.3); border-radius: 8px; color: #a5b4fc; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .add-stack-btn:hover { background: rgba(91,106,240,.25); border-color: var(--accent); }
+  .export-btn { display: flex; align-items: center; gap: 7px; padding: 8px 16px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; color: var(--muted2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; white-space: nowrap; }
+  .export-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+
+  /* HOW TO USE */
+  .how-to-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; overflow: hidden; }
+  .how-to-toggle { display: flex; align-items: center; gap: 10px; padding: 11px 18px; cursor: pointer; user-select: none; width: 100%; background: none; border: none; color: var(--muted2); font-size: 11px; font-weight: 600; text-align: left; transition: color .15s; }
+  .how-to-toggle:hover { color: var(--text); }
+  .how-to-toggle .ht-caret { margin-left: auto; font-size: 10px; transition: transform .2s; display: inline-block; }
+  .how-to-toggle.open .ht-caret { transform: rotate(180deg); }
+  .how-to-body { display: none; padding: 0 18px 16px; border-top: 1px solid var(--border); }
+  .how-to-body.visible { display: block; }
+  .how-to-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+  .how-to-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .how-to-item .hti-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+  .how-to-item p { font-size: 11px; color: var(--muted2); line-height: 1.6; }
+  .how-to-item code { background: var(--surface3); border-radius: 3px; padding: 1px 4px; font-size: 10px; color: var(--yellow); font-family: monospace; }
+
+  /* STACKS GRID */
+  .stacks-wrap { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+  .stacks-wrap::-webkit-scrollbar { height: 5px; }
+  .stacks-wrap::-webkit-scrollbar-track { background: var(--surface); border-radius: 99px; }
+  .stacks-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
+
+  /* STACK CARD */
+  .stack-card { flex: 0 0 300px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: border-color .2s; }
+  .stack-card:hover { border-color: var(--border2); }
+
+  .stack-header { padding: 14px 16px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .stack-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .stack-name-input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 13px; font-weight: 700; outline: none; min-width: 0; }
+  .stack-name-input::placeholder { color: var(--muted); }
+  .stack-name-input:focus { border-bottom: 1px dashed var(--accent); }
+  .stack-dup-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 5px; border-radius: 4px; transition: all .15s; flex-shrink: 0; }
+  .stack-dup-btn:hover { color: #a5b4fc; background: var(--accent-soft); }
+  .stack-del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 4px; border-radius: 4px; transition: all .15s; flex-shrink: 0; }
+  .stack-del-btn:hover { color: var(--red); background: var(--red-soft); }
+
+  /* ITEMS */
+  .items-section { padding: 12px 14px 8px; }
+  .items-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+  .item-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .item-name { flex: 1; background: var(--surface3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 11px; min-width: 0; }
+  .item-name::placeholder { color: var(--muted); }
+  .item-name:focus { outline: none; border-color: var(--accent); }
+  .item-cost { width: 70px; background: var(--surface3); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 11px; text-align: right; }
+  .item-cost::placeholder { color: var(--muted); }
+  .item-cost:focus { outline: none; border-color: var(--accent); }
+  .item-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 3px; border-radius: 4px; flex-shrink: 0; transition: all .15s; }
+  .item-del:hover { color: var(--red); }
+  .add-item-btn { display: flex; align-items: center; gap: 6px; padding: 6px 10px; margin-top: 4px; background: none; border: 1px dashed var(--border2); border-radius: 6px; color: var(--muted); font-size: 11px; cursor: pointer; width: 100%; justify-content: center; transition: all .15s; }
+  .add-item-btn:hover { border-color: var(--accent); color: #a5b4fc; background: var(--accent-soft); }
+
+  /* TOTALS SECTION */
+  .totals-section { padding: 12px 14px; border-top: 1px solid var(--border); background: var(--surface2); }
+  .total-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 11px; }
+  .total-row .tl { color: var(--muted2); }
+  .total-row .tv { font-weight: 700; }
+  .total-cost { font-size: 15px; font-weight: 800; }
+
+  /* PRICING SECTION */
+  .pricing-section { padding: 12px 14px; border-top: 1px solid var(--border); }
+  .pricing-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 10px; }
+  .slider-row { margin-bottom: 8px; }
+  .slider-row .sl { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted2); margin-bottom: 4px; }
+  .slider-row .sl span { font-weight: 700; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px; }
+  .exact-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .exact-row label { font-size: 10px; color: var(--muted); white-space: nowrap; }
+  .exact-input { flex: 1; background: var(--surface3); border: 1px solid var(--accent); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 12px; font-weight: 700; text-align: right; }
+  .exact-input::placeholder { color: var(--muted); font-weight: 400; }
+  .exact-input:focus { outline: none; border-color: #a5b4fc; }
+  .sell-results .sr { display: flex; justify-content: space-between; font-size: 10px; padding: 2px 0; color: var(--muted2); }
+  .sell-results .sr span { font-weight: 600; color: var(--muted2); }
+  .sell-results .sr.highlight span { color: var(--green); font-size: 12px; }
+
+  /* MARGIN HEALTH COLORS */
+  .margin-healthy { color: var(--green) !important; }
+  .margin-warn    { color: var(--yellow) !important; }
+  .margin-danger  { color: var(--red) !important; }
+
+  /* FLAT TOGGLE PILL */
+  .item-type-toggle {
+    flex-shrink: 0; padding: 3px 7px; border-radius: 99px; font-size: 9px; font-weight: 700;
+    cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted2);
+    white-space: nowrap; transition: all .15s; letter-spacing: .3px; line-height: 1.4;
+  }
+  .item-type-toggle:hover { border-color: var(--accent); color: #a5b4fc; background: var(--accent-soft); }
+  .item-type-toggle.is-flat { background: rgba(234,179,8,.1); border-color: rgba(234,179,8,.35); color: #facc15; }
+  .item-type-toggle.is-flat:hover { background: rgba(234,179,8,.2); }
+
+  /* COMPARISON */
+  .compare-section { margin-top: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .compare-header { padding: 14px 18px; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .compare-header h3 { font-size: 13px; font-weight: 700; }
+  .compare-header p { font-size: 11px; color: var(--muted2); margin-left: auto; }
+  .compare-body { padding: 16px 18px; }
+  .compare-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .compare-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .compare-card .cc-name { font-size: 10px; font-weight: 700; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .compare-card .cc-cost { font-size: 20px; font-weight: 800; }
+  .compare-card .cc-sell { font-size: 11px; color: var(--muted2); margin-top: 3px; }
+  .compare-card .cc-margin { font-size: 10px; margin-top: 2px; }
+  .compare-card .cc-rev { font-size: 10px; color: var(--muted2); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+
+  /* SAVINGS TABLE */
+  .savings-section { margin-top: 16px; }
+  .savings-section h4 { font-size: 11px; font-weight: 700; color: var(--muted2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+  .savings-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .savings-table th { background: var(--surface3); padding: 8px 12px; text-align: left; font-weight: 600; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .savings-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .savings-table tr:last-child td { border-bottom: none; }
+  .savings-table tr:hover td { background: var(--surface2); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; }
+  .pill-green { background: var(--green-soft); color: #4ade80; border: 1px solid rgba(34,197,94,.2); }
+  .pill-red { background: var(--red-soft); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+
+  /* EMPTY STATE */
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; color: var(--muted); text-align: center; gap: 10px; }
+  .empty-state .ei { font-size: 36px; }
+  .empty-state p { font-size: 12px; line-height: 1.6; max-width: 280px; }
+
+  /* FOOTER */
+  .footer { text-align: center; padding: 20px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--border); line-height: 1.8; }
+  .footer a { color: var(--accent); text-decoration: none; }
+  .footer a:hover { color: #a5b4fc; }
+
+  /* UTILS */
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .muted { color: var(--muted2); }
+  .no-stacks { display: flex; align-items: center; justify-content: center; min-height: 220px; width: 100%; }
+
+  /* PRINT */
+  @media print {
+    body { background: #fff !important; color: #111 !important; font-size: 11px; margin: 0; }
+    .hero {
+      background: #f0f2ff !important;
+      border-bottom: 2px solid #5b6af0 !important;
+      padding: 14px 24px !important;
+    }
+    .hero::after { display: none !important; }
+    .hero h1 { background: none !important; -webkit-text-fill-color: #1e1e3f !important; font-size: 18px !important; margin-bottom: 0 !important; }
+    .hero-eyebrow, .hero p, .hero-chips { display: none !important; }
+    .top-bar, .how-to-bar, .export-btn, .add-stack-btn,
+    .stack-del-btn, .stack-dup-btn, .add-item-btn,
+    .item-del, .item-type-toggle, .slider-row, input[type=range],
+    .no-print { display: none !important; }
+    .main { padding: 12px 16px 60px !important; max-width: 100% !important; }
+    .stacks-wrap { flex-wrap: wrap !important; overflow: visible !important; gap: 12px !important; }
+    .stack-card { flex: 0 0 200px !important; border: 1px solid #ccc !important; background: #fff !important; page-break-inside: avoid; }
+    .stack-header { background: #f0f2ff !important; border-bottom: 1px solid #ccc !important; }
+    .stack-name-input { color: #111 !important; }
+    .totals-section { background: #f8f9ff !important; border-color: #e0e0e0 !important; }
+    .total-cost { color: #5b6af0 !important; }
+    .total-row .tl, .sell-results .sr span { color: #555 !important; }
+    .pricing-section { border-color: #e0e0e0 !important; }
+    .flat-addon-row label { color: #555 !important; display: block !important; margin-bottom: 4px !important; }
+    .flat-addon-row input { border-color: #bbb !important; background: #f5f5f5 !important; color: #111 !important; }
+    .exact-input { border-color: #bbb !important; background: #f5f5f5 !important; color: #111 !important; }
+
+    /* Stack comparison: always break to a new page with its own header */
+    .compare-section {
+      page-break-before: always !important;
+      border: 1px solid #ccc !important;
+      margin-top: 0 !important;
+    }
+    .compare-section::before {
+      content: 'MSP Stack Cost Analyzer  ·  Stack Comparison';
+      display: block !important;
+      background: #f0f2ff !important;
+      border-bottom: 2px solid #5b6af0 !important;
+      padding: 14px 24px !important;
+      font-size: 15px !important;
+      font-weight: 800 !important;
+      color: #1e1e3f !important;
+    }
+    .compare-header { display: none !important; }
+    .compare-card { background: #f8f9ff !important; border: 1px solid #ddd !important; }
+    .savings-table th, .savings-table td { padding: 6px 8px !important; }
+
+    /* Footer pinned to bottom of every printed page */
+    .footer {
+      position: fixed !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      background: #fff !important;
+      border-top: 1px solid #ddd !important;
+      color: #888 !important;
+      padding: 6px 16px !important;
+      font-size: 9px !important;
+      text-align: center !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">Free Tool · No Sign-Up Required</div>
+    <h1>MSP Stack Cost Analyzer</h1>
+    <p>Build your own side-by-side comparison of any tech stack. Add tools, set costs, adjust your margin — instantly see what you're charging, what you're making, and what your customers could save.</p>
+    <div class="hero-chips">
+      <span class="chip">🔧 Fully Customizable</span>
+      <span class="chip">📊 Unlimited Stacks</span>
+      <span class="chip">💰 Margin Calculator</span>
+      <span class="chip">👥 Per-User &amp; Flat Pricing</span>
+      <span class="chip">💾 Auto-Saves Progress</span>
+      <span class="chip">🖨️ Print to PDF</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- TOP BAR -->
+  <div class="top-bar">
+    <label>👥 Users:</label>
+    <input type="number" id="globalUsers" value="50" min="1" max="99999" oninput="renderAll(); saveState();">
+    <div class="divider"></div>
+    <span class="hint">All pricing updates in real time. Progress auto-saves in your browser.</span>
+    <div class="top-bar-actions">
+      <button class="export-btn" onclick="window.print()">🖨️ Export PDF</button>
+      <button class="add-stack-btn" onclick="addStack()">＋ Add Stack</button>
+    </div>
+  </div>
+
+  <!-- HOW TO USE -->
+  <div class="how-to-bar">
+    <button class="how-to-toggle" id="howToToggle" onclick="toggleHowTo()">
+      <span>💡 How to use this tool</span>
+      <span class="ht-caret">▼</span>
+    </button>
+    <div class="how-to-body" id="howToBody">
+      <div class="how-to-grid">
+        <div class="how-to-item">
+          <div class="hti-label">① Add a Stack</div>
+          <p>Click <strong>＋ Add Stack</strong> to create a named stack — e.g. "Current Stack" or "Proposed Stack". Add as many as you need to compare side by side.</p>
+        </div>
+        <div class="how-to-item">
+          <div class="hti-label">② Add Line Items</div>
+          <p>Each line item is a tool or service with a cost. Toggle <code>$/user</code> → <code>$/mo</code> for flat monthly charges like Inforcer or backup licensing that don't scale per seat.</p>
+        </div>
+        <div class="how-to-item">
+          <div class="hti-label">③ Set Your Price</div>
+          <p>Use the <strong>Margin slider</strong> to set a target gross margin, or type an exact sell price. Add a flat monthly add-on (e.g. a base service fee) on top of per-user pricing.</p>
+        </div>
+        <div class="how-to-item">
+          <div class="hti-label">④ Read the Margin</div>
+          <p>The margin % is color-coded: <span style="color:var(--green);font-weight:700;">green ≥ 40%</span>, <span style="color:var(--yellow);font-weight:700;">yellow 20–39%</span>, <span style="color:var(--red);font-weight:700;">red below 20%</span>. Know your floor before you quote.</p>
+        </div>
+        <div class="how-to-item">
+          <div class="hti-label">⑤ Compare Stacks</div>
+          <p>The comparison panel auto-appears once you have 2+ stacks. See gross profit difference, customer price delta, and annual impact — all calculated automatically.</p>
+        </div>
+        <div class="how-to-item">
+          <div class="hti-label">⑥ Export &amp; Share</div>
+          <p>Click <strong>🖨️ Export PDF</strong> to save a clean snapshot — great for QBRs, proposals, or sharing with your team. Your work auto-saves in the browser between sessions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STACKS -->
+  <div class="stacks-wrap" id="stacksWrap">
+    <div class="no-stacks" id="emptyState">
+      <div class="empty-state">
+        <div class="ei">📦</div>
+        <strong style="color:var(--muted2);">No stacks yet</strong>
+        <p>Click <strong style="color:#a5b4fc;">＋ Add Stack</strong> above to start building your comparison. Add as many stacks as you need — rename them, add line items, and set your pricing.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARISON -->
+  <div class="compare-section" id="compareSection" style="display:none;">
+    <div class="compare-header">
+      <h3>📊 Stack Comparison</h3>
+      <p id="compareSubtitle"></p>
+    </div>
+    <div class="compare-body">
+      <div class="compare-grid" id="compareGrid"></div>
+      <div class="savings-section" id="savingsSection"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  MSP Stack Cost Analyzer &nbsp;·&nbsp; Built by <a href="https://www.linkedin.com/in/lachlanrobinette" target="_blank">Lachlan Robinette</a> &nbsp;·&nbsp; <a href="https://github.com/ZephyrPretenedstoKnowTech/stack-analyzer" target="_blank">View on GitHub</a> &nbsp;·&nbsp; Free to use &amp; share with your team
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let stacks = [];
+let nextStackId = 1, nextItemId = 1;
+const STORAGE_KEY = 'msp_stack_analyzer_v1';
+
+const COLORS = [
+  '#5b6af0','#22c55e','#f97316','#a855f7','#06b6d4',
+  '#eab308','#ef4444','#14b8a6','#f43f5e','#8b5cf6'
+];
+function getColor(idx) { return COLORS[idx % COLORS.length]; }
+
+// ── Persistence ─────────────────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      stacks, nextStackId, nextItemId,
+      users: document.getElementById('globalUsers').value
+    }));
+  } catch(e) {}
+}
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.stacks && Array.isArray(data.stacks)) {
+      stacks = data.stacks;
+      nextStackId = data.nextStackId || stacks.length + 1;
+      nextItemId  = data.nextItemId  || 100;
+      if (data.users) document.getElementById('globalUsers').value = data.users;
+    }
+  } catch(e) {}
+}
+
+// ── How-To ───────────────────────────────────────────────────────────────────
+function toggleHowTo() {
+  const body   = document.getElementById('howToBody');
+  const toggle = document.getElementById('howToToggle');
+  const open   = body.classList.toggle('visible');
+  toggle.classList.toggle('open', open);
+}
+
+// ── Stack Operations ────────────────────────────────────────────────────────
+function addStack() {
+  stacks.push({
+    id: nextStackId++,
+    name: '',
+    color: getColor(stacks.length),
+    items: [],
+    sliderMargin: 30,
+    manualSell: null,
+    pricingFlat: ''
+  });
+  renderAll(); saveState();
+  setTimeout(() => {
+    const inputs = document.querySelectorAll('.stack-name-input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }, 50);
+}
+
+function removeStack(id) {
+  stacks = stacks.filter(s => s.id !== id);
+  renderAll(); saveState();
+}
+
+function duplicateStack(id) {
+  const src = stacks.find(s => s.id === id);
+  if (!src) return;
+  const copy = JSON.parse(JSON.stringify(src));
+  copy.id    = nextStackId++;
+  copy.name  = (src.name || 'Stack') + ' (copy)';
+  copy.color = getColor(stacks.length);
+  copy.items = copy.items.map(i => ({ ...i, id: nextItemId++ }));
+  stacks.push(copy);
+  renderAll(); saveState();
+}
+
+function addItem(stackId) {
+  const s = stacks.find(s => s.id === stackId);
+  if (!s) return;
+  s.items.push({ id: nextItemId++, name: '', cost: '', flat: false });
+  renderAll(); saveState();
+  setTimeout(() => {
+    const rows = document.querySelectorAll(`[data-stack="${stackId}"] .item-name`);
+    if (rows.length) rows[rows.length - 1].focus();
+  }, 50);
+}
+
+function removeItem(stackId, itemId) {
+  const s = stacks.find(s => s.id === stackId);
+  if (!s) return;
+  s.items = s.items.filter(i => i.id !== itemId);
+  renderAll(); saveState();
+}
+
+// ── Input Handlers ──────────────────────────────────────────────────────────
+function onStackName(id, val) {
+  const s = stacks.find(s => s.id === id);
+  if (s) { s.name = val; updateCompare(); saveState(); }
+}
+function onItemName(stackId, itemId, val) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const i = s.items.find(i => i.id === itemId);
+  if (i) { i.name = val; saveState(); }
+}
+function onItemCost(stackId, itemId, val) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const i = s.items.find(i => i.id === itemId); if (!i) return;
+  i.cost = val.replace(/[^0-9.]/g, '');
+  updateStackTotals(s);
+  updateCompare();
+  saveState();
+}
+function onItemCostBlur(stackId, itemId, el) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const i = s.items.find(i => i.id === itemId); if (!i) return;
+  const parsed = parseFloat(i.cost);
+  if (!isNaN(parsed) && parsed > 0) { i.cost = parsed.toFixed(2); el.value = i.cost; }
+  else { i.cost = ''; el.value = ''; }
+  saveState();
+  setTimeout(() => updateCompare(), 0);
+}
+function toggleItemFlat(stackId, itemId) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const i = s.items.find(i => i.id === itemId); if (!i) return;
+  i.flat = !i.flat;
+  renderAll(); saveState();
+}
+function onSlider(stackId, val) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  s.sliderMargin = parseInt(val);
+  s.manualSell = null;
+  renderAll(); saveState();
+}
+function onExact(stackId, val) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const cleaned = val.replace(/[^0-9.]/g, '');
+  const parsed  = parseFloat(cleaned);
+  s.manualSell  = (cleaned === '' || isNaN(parsed)) ? null : parsed;
+  if (s.manualSell != null) {
+    const cost = stackCost(s);
+    const m = s.manualSell > cost ? Math.round((1 - cost / s.manualSell) * 100) : 0;
+    s.sliderMargin = Math.min(99, Math.max(0, m));
+    const slider = document.getElementById(`slider_${stackId}`);
+    if (slider) slider.value = s.sliderMargin;
+    const label = document.getElementById(`mlabel_${stackId}`);
+    if (label) { label.textContent = s.sliderMargin + '%'; label.className = marginClass(s.sliderMargin); }
+  }
+  updateStackTotals(s);
+  updateCompare(); saveState();
+}
+function onExactBlur(stackId, el) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  if (s.manualSell != null) el.value = s.manualSell.toFixed(2);
+  saveState();
+}
+function onPricingFlat(stackId, val) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  s.pricingFlat = val.replace(/[^0-9.]/g, '');
+  updateStackTotals(s);
+  updateCompare();
+  saveState();
+}
+function onPricingFlatBlur(stackId, el) {
+  const s = stacks.find(s => s.id === stackId); if (!s) return;
+  const parsed = parseFloat(s.pricingFlat);
+  if (!isNaN(parsed) && parsed > 0) { s.pricingFlat = parsed.toFixed(2); el.value = s.pricingFlat; }
+  else { s.pricingFlat = ''; el.value = ''; }
+  saveState();
+  setTimeout(() => updateCompare(), 0);
+}
+
+// ── Calculations ────────────────────────────────────────────────────────────
+function stackCostPerUser(s) {
+  const u = users();
+  return s.items.reduce((sum, i) => {
+    const v = parseFloat(i.cost) || 0;
+    return sum + (i.flat ? v / u : v);
+  }, 0);
+}
+function stackFlatTotal(s) {
+  return s.items.reduce((sum, i) => sum + (i.flat ? (parseFloat(i.cost) || 0) : 0), 0);
+}
+function pricingFlatVal(s) { return parseFloat(s.pricingFlat) || 0; }
+function stackCost(s) { return stackCostPerUser(s); }
+function stackSell(s) {
+  const cost = stackCost(s);
+  if (s.manualSell != null) return s.manualSell;
+  const m = s.sliderMargin / 100;
+  return m < 1 ? cost / (1 - m) : cost;
+}
+function stackMarginPct(s) {
+  const cost = stackCost(s), sell = stackSell(s);
+  return sell > cost ? Math.round((1 - cost / sell) * 100) : 0;
+}
+function users() { return Math.max(1, parseInt(document.getElementById('globalUsers').value) || 1); }
+function fmt(n)  { return '$' + Math.abs(n).toFixed(2); }
+function fmtK(n) { const a = Math.abs(n); return a >= 1000 ? '$' + (a/1000).toFixed(1) + 'k' : '$' + a.toFixed(2); }
+function marginClass(pct) {
+  if (pct >= 40) return 'margin-healthy';
+  if (pct >= 20) return 'margin-warn';
+  return 'margin-danger';
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function renderAll() { renderStacks(); updateCompare(); }
+
+function renderStacks() {
+  const wrap  = document.getElementById('stacksWrap');
+  const empty = document.getElementById('emptyState');
+  wrap.querySelectorAll('.stack-card').forEach(el => el.remove());
+  if (stacks.length === 0) { empty.style.display = 'flex'; return; }
+  empty.style.display = 'none';
+
+  stacks.forEach(s => {
+    const cost      = stackCost(s);
+    const sell      = stackSell(s);
+    const u         = users();
+    const margin    = stackMarginPct(s);
+    const flatAddon = pricingFlatVal(s);
+    const gpMo      = (sell - cost) * u + flatAddon;
+    const mClass    = marginClass(margin);
+    const exactVal  = s.manualSell != null ? s.manualSell.toFixed(2) : sell.toFixed(2);
+
+    const card = document.createElement('div');
+    card.className = 'stack-card';
+    card.setAttribute('data-stack', s.id);
+
+    card.innerHTML = `
+      <div class="stack-header">
+        <div class="stack-color-dot" style="background:${s.color}"></div>
+        <input class="stack-name-input" placeholder="Stack name…" value="${escHtml(s.name)}"
+          oninput="onStackName(${s.id}, this.value)">
+        <button class="stack-dup-btn" onclick="duplicateStack(${s.id})" title="Duplicate stack">⧉</button>
+        <button class="stack-del-btn" onclick="removeStack(${s.id})" title="Remove stack">✕</button>
+      </div>
+
+      <div class="items-section">
+        <div class="items-label">Line Items</div>
+        <div id="items_${s.id}">
+          ${s.items.map(item => `
+            <div class="item-row">
+              <input class="item-name" placeholder="Tool / service name" value="${escHtml(item.name)}"
+                oninput="onItemName(${s.id}, ${item.id}, this.value)">
+              <input class="item-cost" type="text" inputmode="decimal" placeholder="0.00"
+                value="${item.cost}"
+                oninput="onItemCost(${s.id}, ${item.id}, this.value)"
+                onblur="onItemCostBlur(${s.id}, ${item.id}, this)">
+              <button class="item-type-toggle ${item.flat ? 'is-flat' : ''}"
+                onclick="toggleItemFlat(${s.id}, ${item.id})"
+                title="${item.flat ? 'Flat monthly — click to switch to per-user' : 'Per-user — click to switch to flat monthly'}">
+                ${item.flat ? '$/mo' : '$/user'}
+              </button>
+              <button class="item-del" onclick="removeItem(${s.id}, ${item.id})" title="Remove">✕</button>
+            </div>
+          `).join('')}
+        </div>
+        <button class="add-item-btn" onclick="addItem(${s.id})">＋ Add line item</button>
+      </div>
+
+      <div class="totals-section">
+        ${stackFlatTotal(s) > 0 ? `
+        <div class="total-row">
+          <span class="tl" style="color:var(--yellow);font-size:10px;">Flat Monthly (${u} users)</span>
+          <span class="tv flat-total" style="color:var(--yellow);font-size:11px;">${fmtK(stackFlatTotal(s))}/mo</span>
+        </div>` : ''}
+        <div class="total-row">
+          <span class="tl">Total Cost / User / Mo</span>
+          <span class="tv total-cost" style="color:${s.color}">${fmt(cost)}</span>
+        </div>
+        <div class="total-row">
+          <span class="tl">Monthly Cost (${u} users)</span>
+          <span class="tv muted monthly-cost">${fmtK(cost * u)}</span>
+        </div>
+      </div>
+
+      <div class="pricing-section">
+        <div class="pricing-label">Customer Pricing</div>
+        <div class="flat-addon-row" style="margin-bottom:12px;">
+          <label style="color:var(--muted2);font-size:10px;display:block;margin-bottom:5px;">+ Flat monthly add-on:</label>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:11px;color:var(--muted);">$</span>
+            <input class="exact-input" type="text" inputmode="decimal"
+              placeholder="0.00" value="${s.pricingFlat}"
+              oninput="onPricingFlat(${s.id}, this.value)"
+              onblur="onPricingFlatBlur(${s.id}, this)"
+              style="width:80px;border-color:${flatAddon > 0 ? 'rgba(234,179,8,.5)' : 'var(--border2)'};color:${flatAddon > 0 ? 'var(--yellow)' : 'var(--text)'};">
+            <span style="font-size:9px;color:var(--muted);white-space:nowrap;">/mo flat</span>
+          </div>
+        </div>
+        <div style="height:1px;background:var(--border);margin-bottom:12px;"></div>
+        <div class="slider-row">
+          <div class="sl">
+            <span>Margin</span>
+            <span id="mlabel_${s.id}" class="${mClass}">${margin}%</span>
+          </div>
+          <input type="range" id="slider_${s.id}" min="0" max="99" value="${s.sliderMargin}"
+            oninput="onSlider(${s.id}, this.value)">
+        </div>
+        <div class="exact-row no-print">
+          <label>Or type exact price:</label>
+          <input class="exact-input" id="exact_${s.id}" type="text" inputmode="decimal"
+            placeholder="e.g. 70.00" value="${exactVal}"
+            oninput="onExact(${s.id}, this.value)"
+            onblur="onExactBlur(${s.id}, this)">
+        </div>
+        <div class="sell-results">
+          <div class="sr highlight">
+            <span>Sell Price / User / Mo</span>
+            <span class="sell-price" style="color:${s.color};font-size:13px;font-weight:800;">${fmt(sell)}</span>
+          </div>
+          ${flatAddon > 0 ? `
+          <div class="sr">
+            <span style="color:var(--yellow);">+ Flat Add-on</span>
+            <span style="color:var(--yellow);font-weight:600;">${fmtK(flatAddon)}/mo</span>
+          </div>` : ''}
+          <div class="sr">
+            <span>Monthly Revenue (${u} users)</span>
+            <span class="mo-rev">${fmtK(sell * u + flatAddon)}</span>
+          </div>
+          <div class="sr">
+            <span>Annual Revenue</span>
+            <span class="ann-rev">${fmtK((sell * u + flatAddon) * 12)}</span>
+          </div>
+          <div class="sr">
+            <span>Monthly Gross Profit</span>
+            <span class="gp-mo" style="color:${gpMo >= 0 ? 'var(--green)' : 'var(--red)'}">${gpMo >= 0 ? '' : '-'}${fmtK(Math.abs(gpMo))}</span>
+          </div>
+        </div>
+      </div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+// In-place totals update — no DOM rebuild, preserves focus while typing
+function updateStackTotals(s) {
+  const u         = users();
+  const cost      = stackCost(s);
+  const sell      = stackSell(s);
+  const flatAddon = pricingFlatVal(s);
+  const gpMo      = (sell - cost) * u + flatAddon;
+  const card = document.querySelector(`[data-stack="${s.id}"]`);
+  if (!card) return;
+  const q = sel => card.querySelector(sel);
+  if (q('.flat-total'))   q('.flat-total').textContent   = fmtK(stackFlatTotal(s)) + '/mo';
+  if (q('.total-cost'))   q('.total-cost').textContent   = fmt(cost);
+  if (q('.monthly-cost')) q('.monthly-cost').textContent = fmtK(cost * u);
+  if (q('.sell-price'))   q('.sell-price').textContent   = fmt(sell);
+  if (q('.mo-rev'))       q('.mo-rev').textContent       = fmtK(sell * u + flatAddon);
+  if (q('.ann-rev'))      q('.ann-rev').textContent      = fmtK((sell * u + flatAddon) * 12);
+  if (q('.gp-mo')) {
+    q('.gp-mo').textContent  = (gpMo >= 0 ? '' : '-') + fmtK(Math.abs(gpMo));
+    q('.gp-mo').style.color  = gpMo >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+function updateCompare() {
+  const section    = document.getElementById('compareSection');
+  const grid       = document.getElementById('compareGrid');
+  const savSection = document.getElementById('savingsSection');
+  if (stacks.length < 1) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const u = users();
+  document.getElementById('compareSubtitle').textContent =
+    stacks.length + ' stack' + (stacks.length !== 1 ? 's' : '') + ' · ' + u + ' users';
+
+  grid.innerHTML = stacks.map(s => {
+    const cost      = stackCost(s);
+    const sell      = stackSell(s);
+    const margin    = stackMarginPct(s);
+    const flatAddon = pricingFlatVal(s);
+    const gpMo      = (sell - cost) * u + flatAddon;
+    const mClass    = marginClass(margin);
+    const name      = s.name || 'Unnamed Stack';
+    return `
+      <div class="compare-card">
+        <div class="cc-name">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0;"></span>
+          ${escHtml(name)}
+        </div>
+        <div class="cc-cost" style="color:${s.color}">${fmt(cost)}<span style="font-size:10px;font-weight:400;color:var(--muted2);"> /user/mo</span></div>
+        <div class="cc-sell">Sell price: <strong style="color:${s.color}">${fmt(sell)}</strong>${flatAddon > 0 ? ` <span style="color:var(--yellow);font-size:9px;">+${fmtK(flatAddon)}/mo flat</span>` : ''}</div>
+        <div class="cc-margin">Margin: <strong class="${mClass}">${margin}%</strong></div>
+        <div class="cc-rev">
+          Monthly GP: <strong style="color:${gpMo>=0?'var(--green)':'var(--red)'}">${gpMo>=0?'':'-'}${fmtK(Math.abs(gpMo))}</strong>
+          &nbsp;·&nbsp; Annual: <strong style="color:${gpMo>=0?'var(--green)':'var(--red)'}">${gpMo>=0?'':'-'}${fmtK(Math.abs(gpMo*12))}</strong>
+        </div>
+      </div>`;
+  }).join('');
+
+  if (stacks.length >= 2) {
+    let rows = '';
+    for (let a = 0; a < stacks.length; a++) {
+      for (let b = a + 1; b < stacks.length; b++) {
+        const sa = stacks[a], sb = stacks[b];
+        const costDiff  = stackCost(sa) - stackCost(sb);
+        const sellDiff  = stackSell(sa) - stackSell(sb);
+        const gpA = (stackSell(sa) - stackCost(sa)) * u + pricingFlatVal(sa);
+        const gpB = (stackSell(sb) - stackCost(sb)) * u + pricingFlatVal(sb);
+        const gpDiff    = gpA - gpB;
+        const custSave  = sellDiff * u;
+        const nameA = escHtml(sa.name || 'Stack A'), nameB = escHtml(sb.name || 'Stack B');
+        const colA  = sa.color, colB = sb.color;
+
+        // Which stack is cheaper to deliver
+        const cheaperCost = costDiff === 0 ? null : costDiff > 0 ? { name: nameB, col: colB } : { name: nameA, col: colA };
+
+        // Which stack earns more GP
+        const gpWinner = gpDiff === 0 ? null : gpDiff > 0 ? { name: nameA, col: colA, gp: gpA, diff: gpDiff } : { name: nameB, col: colB, gp: gpB, diff: Math.abs(gpDiff) };
+
+        // Which stack is cheaper for the customer
+        const custCheaper = custSave === 0 ? null : custSave > 0 ? { name: nameB, col: colB } : { name: nameA, col: colA };
+
+        // Overall MSP winner = highest GP
+        const mspWinner = gpWinner;
+
+        rows += `
+          <tr>
+            <td>
+              <span style="color:${colA};font-weight:700;">⬤ ${nameA}</span>
+              <span style="color:var(--muted);padding:0 4px;">vs</span>
+              <span style="color:${colB};font-weight:700;">⬤ ${nameB}</span>
+            </td>
+            <td>
+              ${cheaperCost
+                ? `<span class="pill pill-green"><span style="color:${cheaperCost.col};font-weight:800;">${cheaperCost.name}</span> saves ${fmt(Math.abs(costDiff))}/user</span>`
+                : '<span style="color:var(--muted);">Same cost</span>'}
+            </td>
+            <td style="font-weight:600;">
+              ${custCheaper
+                ? `<span style="color:${custCheaper.col}">${custCheaper.name}</span> is ${fmt(Math.abs(sellDiff))} less/user · <span style="color:var(--muted2);">${fmtK(Math.abs(custSave * 12))}/yr savings</span>`
+                : '<span style="color:var(--muted);">Same price</span>'}
+            </td>
+            <td>
+              ${mspWinner
+                ? `<span style="color:${mspWinner.col};font-weight:800;">${mspWinner.name}</span> <span style="color:var(--green);font-weight:700;">+${fmtK(mspWinner.diff)}/mo</span> <span style="color:var(--muted2);">(${fmtK(mspWinner.diff * 12)}/yr)</span>`
+                : '<span style="color:var(--muted);">Equal GP</span>'}
+            </td>
+            <td>
+              ${mspWinner
+                ? `<span class="pill pill-green" style="font-size:10px;">✓ ${mspWinner.name}</span>`
+                : '<span style="color:var(--muted);">—</span>'}
+            </td>
+          </tr>`;
+      }
+    }
+    savSection.innerHTML = `
+      <h4>Stack vs. Stack Breakdown</h4>
+      <div style="overflow-x:auto;">
+      <table class="savings-table">
+        <thead><tr>
+          <th>Comparison</th>
+          <th>Lower Cost to Deliver</th>
+          <th>Cheaper for Customer</th>
+          <th>Gross Profit Difference</th>
+          <th>Best for Your Margin</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`;
+  } else {
+    savSection.innerHTML = '<p style="font-size:11px;color:var(--muted);padding-top:12px;">Add a second stack to see a side-by-side comparison.</p>';
+  }
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Init — load saved state then render
+loadState();
+renderAll();
+</script>
+</body>
+</html>
